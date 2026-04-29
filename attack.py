@@ -114,8 +114,8 @@ def get_heavy_attack() -> AttackData:
         active_frames=10,
         recovery_frames=25,
         hitstun=35,
-        knockback_x=8,
-        knockback_y=-12,
+        knockback_x=4,
+        knockback_y=-5,
         is_high=True,
         can_block=True,
         guard_break=True

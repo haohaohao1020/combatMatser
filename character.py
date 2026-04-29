@@ -165,124 +165,86 @@ class Character:
             keys: pygame.key.get_pressed() 的结果
             opponent: 对手角色
         """
-        # AI角色不处理键盘输入
         if self.is_ai:
             return
         
-        # ========================================
-        # 检查是否可以操作
-        # ========================================
-        if self.hitstun > 0 or self.grounded_timer > 0:
-            return
-        if self.dodge_timer > 0:
-            return
-        if self.is_attacking and self.attack_timer > 0:
-            return
-        if self.is_ultimate:
-            return
-        
-        # ========================================
-        # 重置状态
-        # ========================================
         move_input = 0
         self.is_blocking = False
         
-        # ========================================
-        # 根据玩家1或玩家2处理不同按键
-        # ========================================
+        can_attack = (self.hitstun <= 0 and self.dodge_timer <= 0 and 
+                       self.grounded_timer <= 0 and not self.is_ultimate)
+        
         if self.is_player1:
-            # 玩家1按键
             if keys[pygame.K_a]:
                 move_input = -1
             if keys[pygame.K_d]:
                 move_input = 1
             
-            # 跳跃
-            if keys[pygame.K_w] and self.jump_count < self.max_jumps:
+            if keys[pygame.K_w] and self.jump_count < self.max_jumps and can_attack:
                 self.jump()
             
-            # 下蹲
-            if keys[pygame.K_s]:
+            if keys[pygame.K_s] and not self.is_attacking:
                 self.state = CharacterState.CROUCH
                 self.block_high = False
             
-            # 攻击
-            if keys[pygame.K_j]:
+            if keys[pygame.K_j] and can_attack:
                 self.start_attack(get_light_attack())
-            if keys[pygame.K_k]:
+            if keys[pygame.K_k] and can_attack:
                 self.start_attack(get_heavy_attack())
             
-            # 格挡
-            if keys[pygame.K_l]:
+            if keys[pygame.K_l] and can_attack:
                 if self.is_grounded:
                     self.is_blocking = True
                     self.state = CharacterState.BLOCK
-                    if keys[pygame.K_s]:
-                        self.block_high = False
-                    else:
-                        self.block_high = True
+                    self.block_high = not keys[pygame.K_s]
             
-            # 必杀
-            if keys[pygame.K_SPACE] and self.rage >= self.max_rage:
+            if keys[pygame.K_SPACE] and self.rage >= self.max_rage and can_attack:
                 self.start_ultimate()
             
-            # 闪避
-            if keys[pygame.K_LSHIFT] and self.dodge_cooldown <= 0:
+            if keys[pygame.K_LSHIFT] and self.dodge_cooldown <= 0 and can_attack:
                 dodge_dir = -self.facing if move_input == 0 else move_input
                 self.start_dodge(dodge_dir)
         
         else:
-            # 玩家2按键（只在PVP模式下使用）
             if keys[pygame.K_LEFT]:
                 move_input = -1
             if keys[pygame.K_RIGHT]:
                 move_input = 1
             
-            # 跳跃
-            if keys[pygame.K_UP] and self.jump_count < self.max_jumps:
+            if keys[pygame.K_UP] and self.jump_count < self.max_jumps and can_attack:
                 self.jump()
             
-            # 下蹲
-            if keys[pygame.K_DOWN]:
+            if keys[pygame.K_DOWN] and not self.is_attacking:
                 self.state = CharacterState.CROUCH
                 self.block_high = False
             
-            # 攻击
-            if keys[pygame.K_KP1] or keys[pygame.K_1]:
+            if (keys[pygame.K_KP1] or keys[pygame.K_1]) and can_attack:
                 self.start_attack(get_light_attack())
-            if keys[pygame.K_KP2] or keys[pygame.K_2]:
+            if (keys[pygame.K_KP2] or keys[pygame.K_2]) and can_attack:
                 self.start_attack(get_heavy_attack())
             
-            # 格挡
-            if keys[pygame.K_KP3] or keys[pygame.K_3]:
+            if (keys[pygame.K_KP3] or keys[pygame.K_3]) and can_attack:
                 if self.is_grounded:
                     self.is_blocking = True
                     self.state = CharacterState.BLOCK
-                    if keys[pygame.K_DOWN]:
-                        self.block_high = False
-                    else:
-                        self.block_high = True
+                    self.block_high = not keys[pygame.K_DOWN]
             
-            # 必杀
-            if keys[pygame.K_RETURN] and self.rage >= self.max_rage:
+            if keys[pygame.K_RETURN] and self.rage >= self.max_rage and can_attack:
                 self.start_ultimate()
             
-            # 闪避
-            if keys[pygame.K_RSHIFT] and self.dodge_cooldown <= 0:
+            if keys[pygame.K_RSHIFT] and self.dodge_cooldown <= 0 and can_attack:
                 dodge_dir = -self.facing if move_input == 0 else move_input
                 self.start_dodge(dodge_dir)
         
-        # ========================================
-        # 应用移动
-        # ========================================
         if not self.is_blocking and not self.is_attacking:
-            if move_input != 0:
-                self.vel_x = move_input * WALK_SPEED
-                if self.state != CharacterState.JUMP and self.is_grounded:
-                    self.state = CharacterState.WALK
-            else:
-                if self.is_grounded and self.state == CharacterState.WALK:
-                    self.state = CharacterState.IDLE
+            if self.dodge_timer <= 0:
+                if move_input != 0:
+                    self.vel_x = move_input * WALK_SPEED
+                    if self.state != CharacterState.JUMP and self.is_grounded:
+                        self.state = CharacterState.WALK
+                else:
+                    if self.is_grounded and self.state in [CharacterState.WALK, CharacterState.IDLE]:
+                        self.state = CharacterState.IDLE
     
     # =========================================================================
     # 跳跃动作
@@ -357,10 +319,11 @@ class Character:
         
         self.rage = 0
         self.is_ultimate = True
+        self.is_attacking = True
         self.ultimate_timer = 90
         self.state = CharacterState.ULTIMATE
         self.current_attack = get_ultimate_attack()
-        self.attack_timer = self.ultimate_timer
+        self.attack_timer = self.current_attack.total_frames  # 正确设置为攻击总帧数
         self.has_hit = False
     
     # =========================================================================
@@ -543,6 +506,7 @@ class Character:
             opponent.hitstun = attack.hitstun
             opponent.vel_x = self.facing * attack.knockback_x
             opponent.vel_y = attack.knockback_y
+            opponent.is_grounded = False  # 受击时立即离开地面
             
             # 浮空
             if attack.knockback_y < -5:
@@ -718,6 +682,9 @@ class Character:
             
             if self.state == CharacterState.JUMP:
                 self.state = CharacterState.IDLE
+        else:
+            # 离开地面
+            self.is_grounded = False
         
         # 空中状态
         if not self.is_grounded:
