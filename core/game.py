@@ -46,6 +46,7 @@ class Game:
         self.player1_hero_type: Optional[HeroType] = HeroType.BASIC_FIGHTER
         self.player2_hero_type: Optional[HeroType] = HeroType.BASIC_FIGHTER
         self.use_hero_system = True
+        self._pending_mode: str = "normal"
 
         self.player1: Optional[HeroCharacter] = None
         self.player2: Optional[HeroCharacter] = None
@@ -298,9 +299,14 @@ class Game:
             if selection is not None:
                 if self.main_menu.menu_type == "main":
                     if selection == 0:
+                        self._pending_mode = "normal"
                         self.main_menu.set_menu("mode")
                     elif selection == 1:
-                        self.start_endless_mode()
+                        self._pending_mode = "endless"
+                        self.hero_select_menu.reset_selection()
+                        self.hero_select_menu.single_player_mode = True
+                        self.hero_select_menu.selecting_player = 1
+                        self.state = GameState.HERO_SELECT
                     elif selection == 2:
                         self.running = False
 
@@ -335,16 +341,23 @@ class Game:
                         self.player1_hero_type = p1_hero
                     if p2_hero:
                         self.player2_hero_type = p2_hero
-                    if self.game_mode == "pvc":
-                        self.player2_hero_type = HeroType.BASIC_FIGHTER
-                        self.start_game_after_hero_select()
+
+                    if self._pending_mode == "endless":
+                        self.start_endless_mode()
                     else:
-                        self.start_game_after_hero_select()
+                        if self.game_mode == "pvc":
+                            self.player2_hero_type = HeroType.BASIC_FIGHTER
+                            self.start_game_after_hero_select()
+                        else:
+                            self.start_game_after_hero_select()
                 elif result_code == 1:
-                    if self.game_mode == "pvc":
-                        self.main_menu.set_menu("difficulty")
+                    if self._pending_mode == "endless":
+                        self.main_menu.set_menu("main")
                     else:
-                        self.main_menu.set_menu("mode")
+                        if self.game_mode == "pvc":
+                            self.main_menu.set_menu("difficulty")
+                        else:
+                            self.main_menu.set_menu("mode")
                     self.state = GameState.MENU
 
         elif self.state == GameState.ENDLESS_PLAYING:

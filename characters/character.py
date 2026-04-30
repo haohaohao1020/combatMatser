@@ -256,6 +256,10 @@ class Character:
             is_crouching
         )
 
+    def apply_damage(self, damage: int, attack: AttackData) -> int:
+        self.health = max(0, self.health - damage)
+        return damage
+
     def check_attack_hit(
         self,
         opponent: 'Character',

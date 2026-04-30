@@ -28,18 +28,48 @@ class HeroSelectMenu:
         self.animation_offset = 0
         self.preview_animation_time = 0
 
+        self.single_player_mode = False
+
     def init_fonts(self):
-        self.font_title = pygame.font.Font(None, 80)
-        self.font_large = pygame.font.Font(None, 56)
-        self.font_medium = pygame.font.Font(None, 42)
-        self.font_small = pygame.font.Font(None, 32)
-        self.font_hint = pygame.font.Font(None, 26)
+        chinese_fonts = [
+            "msyh.ttc",
+            "simhei.ttf",
+            "simsun.ttc",
+            "notosanscjksc-regular.otf",
+        ]
+
+        self.font_title = self._load_chinese_font(80, chinese_fonts)
+        self.font_large = self._load_chinese_font(56, chinese_fonts)
+        self.font_medium = self._load_chinese_font(42, chinese_fonts)
+        self.font_small = self._load_chinese_font(32, chinese_fonts)
+        self.font_hint = self._load_chinese_font(26, chinese_fonts)
+
+    def _load_chinese_font(self, size: int, font_list: List[str]) -> pygame.font.Font:
+        for font_name in font_list:
+            try:
+                font = pygame.font.SysFont(font_name, size)
+                if font:
+                    return font
+            except:
+                continue
+
+        try:
+            import os
+            for font_name in font_list:
+                sys_font_path = os.path.join("C:\\Windows\\Fonts", font_name)
+                if os.path.exists(sys_font_path):
+                    return pygame.font.Font(sys_font_path, size)
+        except:
+            pass
+
+        return pygame.font.Font(None, size)
 
     def reset_selection(self):
         self.selected_index = 0
         self.player1_hero = None
         self.player2_hero = None
         self.selecting_player = 1
+        self.single_player_mode = False
 
     def get_hero_at_index(self, index: int) -> HeroType:
         return self.hero_types[index % len(self.hero_types)]
@@ -62,6 +92,8 @@ class HeroSelectMenu:
                 elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
                     if self.selecting_player == 1:
                         self.player1_hero = self.get_hero_at_index(self.selected_index)
+                        if self.single_player_mode:
+                            return (0, self.player1_hero, None)
                         self.selecting_player = 2
                     else:
                         self.player2_hero = self.get_hero_at_index(self.selected_index)

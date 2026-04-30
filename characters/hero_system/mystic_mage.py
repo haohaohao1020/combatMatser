@@ -13,6 +13,7 @@ from config import (
 from attacks import (
     AttackData, get_light_attack, get_heavy_attack, get_low_attack
 )
+from effects import DamageNumber, ScreenShake
 from characters.hero_system.character_types import HeroType, SkillType
 from characters.hero_system.hero_base import HeroCharacter, HeroStats, SkillData
 
