@@ -31,7 +31,7 @@ class MainMenu:
         self.selected_index = 0
 
         if menu_type == "main":
-            self.options = ["START GAME", "QUIT"]
+            self.options = ["START GAME", "ENDLESS SURVIVAL", "QUIT"]
         elif menu_type == "mode":
             self.options = ["PLAYER VS PLAYER", "PLAYER VS CPU", "BACK"]
         elif menu_type == "difficulty":

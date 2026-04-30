@@ -221,3 +221,96 @@ class UI:
             )
 
             surface.blit(transition_surface, (0, 0))
+
+    def render_endless_hud(
+        self,
+        surface: pygame.Surface,
+        wave: int,
+        survival_time: str,
+        combo_kills: int,
+        score: int,
+        difficulty_color: tuple,
+        difficulty_desc: str
+    ):
+        panel_width = 200
+        panel_height = 120
+        panel_x = 10
+        panel_y = 80
+
+        panel_surface = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+        panel_alpha = clamp_color(200)
+        panel_color = with_alpha(DARK_GRAY, panel_alpha)
+        pygame.draw.rect(panel_surface, panel_color, (0, 0, panel_width, panel_height), border_radius=10)
+        pygame.draw.rect(panel_surface, GRAY, (0, 0, panel_width, panel_height), 2, border_radius=10)
+
+        surface.blit(panel_surface, (panel_x, panel_y))
+
+        if self.font_small:
+            wave_text = self.font_small.render(f"WAVE: {wave}", True, WHITE)
+            surface.blit(wave_text, (panel_x + 15, panel_y + 10))
+
+            time_text = self.font_small.render(f"TIME: {survival_time}", True, WHITE)
+            surface.blit(time_text, (panel_x + 15, panel_y + 35))
+
+            combo_color = ORANGE if combo_kills >= 5 else YELLOW if combo_kills >= 3 else WHITE
+            combo_text = self.font_small.render(f"COMBO: {combo_kills}x", True, combo_color)
+            surface.blit(combo_text, (panel_x + 15, panel_y + 60))
+
+            score_text = self.font_small.render(f"SCORE: {score:,}", True, GREEN)
+            surface.blit(score_text, (panel_x + 15, panel_y + 85))
+
+        diff_panel_width = 200
+        diff_panel_height = 40
+        diff_panel_x = SCREEN_WIDTH - diff_panel_width - 10
+        diff_panel_y = 80
+
+        diff_surface = pygame.Surface((diff_panel_width, diff_panel_height), pygame.SRCALPHA)
+        pygame.draw.rect(diff_surface, panel_color, (0, 0, diff_panel_width, diff_panel_height), border_radius=8)
+        pygame.draw.rect(diff_surface, difficulty_color, (0, 0, diff_panel_width, diff_panel_height), 2, border_radius=8)
+
+        surface.blit(diff_surface, (diff_panel_x, diff_panel_y))
+
+        if self.font_small:
+            diff_text = self.font_small.render(difficulty_desc, True, difficulty_color)
+            text_rect = diff_text.get_rect(center=(diff_panel_width // 2, diff_panel_height // 2))
+            surface.blit(diff_text, (diff_panel_x + text_rect.x, diff_panel_y + text_rect.y))
+
+    def render_endless_wave_transition(
+        self,
+        surface: pygame.Surface,
+        wave: int,
+        alpha: int,
+        heal_amount: int = 0
+    ):
+        if self.font_large and alpha > 0:
+            safe_alpha = clamp_color(alpha)
+
+            transition_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+
+            overlay_alpha = clamp_color(min(safe_alpha, 150))
+            overlay_color = with_alpha(BLACK, overlay_alpha)
+            transition_surface.fill(overlay_color)
+
+            wave_text = self.font_large.render(f"WAVE {wave}", True, ORANGE)
+            wave_text.set_alpha(safe_alpha)
+
+            transition_surface.blit(
+                wave_text,
+                (
+                    SCREEN_WIDTH // 2 - wave_text.get_width() // 2,
+                    SCREEN_HEIGHT // 2 - wave_text.get_height() // 2 - 30
+                )
+            )
+
+            if self.font_medium and heal_amount > 0:
+                heal_text = self.font_medium.render(f"+{heal_amount} HP RESTORED", True, GREEN)
+                heal_text.set_alpha(safe_alpha)
+                transition_surface.blit(
+                    heal_text,
+                    (
+                        SCREEN_WIDTH // 2 - heal_text.get_width() // 2,
+                        SCREEN_HEIGHT // 2 + 30
+                    )
+                )
+
+            surface.blit(transition_surface, (0, 0))

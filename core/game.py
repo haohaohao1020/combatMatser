@@ -1,12 +1,13 @@
 import pygame
 import sys
-from typing import Optional
+from typing import Optional, List
 
 from config import (
     GameState, CharacterState,
     SCREEN_WIDTH, SCREEN_HEIGHT, FPS, GROUND_Y,
     PLAYER_WIDTH, PLAYER_HEIGHT, ROUND_TIME, MAX_ROUNDS,
-    clamp, WHITE, BLACK
+    clamp, WHITE, BLACK,
+    ENDLESS_WAVE_HEAL_AMOUNT, ENDLESS_WAVE_TRANSITION_FRAMES
 )
 from characters import Character, AIController, add_ai_to_character
 from attacks import get_light_attack, get_heavy_attack, get_low_attack
@@ -14,6 +15,7 @@ from effects import EffectManager, ScreenShake
 from ui import UI, InGameMenu
 from menus import MainMenu
 from stage import Stage
+from core.endless_mode import EndlessModeManager
 
 
 class Game:
@@ -46,6 +48,8 @@ class Game:
         self.stage = Stage()
         self.effect_manager = EffectManager()
         self.screen_shake = ScreenShake()
+
+        self.endless_manager: Optional[EndlessModeManager] = None
 
         self.ui = UI()
         self.main_menu = MainMenu()
@@ -83,6 +87,21 @@ class Game:
         self.p2_wins = 0
         self.start_new_round()
         self.state = GameState.PLAYING
+
+    def start_endless_mode(self):
+        self.endless_manager = EndlessModeManager()
+
+        ground_y = GROUND_Y - PLAYER_HEIGHT
+        self.player1 = Character(SCREEN_WIDTH // 2 - PLAYER_WIDTH // 2, ground_y, is_player1=True)
+        self.player2 = None
+        self.ai_controller = None
+
+        self.effect_manager.clear()
+        self.screen_shake = ScreenShake()
+
+        self.endless_manager.start(self.player1)
+
+        self.state = GameState.ENDLESS_PLAYING
 
     def check_round_end(self) -> bool:
         if not self.player1 or not self.player2:
@@ -258,6 +277,8 @@ class Game:
                     if selection == 0:
                         self.main_menu.set_menu("mode")
                     elif selection == 1:
+                        self.start_endless_mode()
+                    elif selection == 2:
                         self.running = False
 
                 elif self.main_menu.menu_type == "mode":
@@ -279,6 +300,44 @@ class Game:
                         self.start_game()
                     elif selection == 2:
                         self.main_menu.set_menu("mode")
+
+        elif self.state == GameState.ENDLESS_PLAYING:
+            for event in events:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.state = GameState.ENDLESS_PAUSED
+                        self.ingame_menu.selected_index = 0
+
+            if self.player1:
+                enemies = self.endless_manager.get_active_enemies() if self.endless_manager else []
+                if enemies:
+                    self.player1.handle_input(keys, enemies[0])
+                else:
+                    self.player1.handle_input(keys, self.player1)
+
+        elif self.state == GameState.ENDLESS_PAUSED:
+            selection = self.ingame_menu.handle_input(keys, events)
+
+            if selection is not None:
+                if selection == 0:
+                    self.state = GameState.ENDLESS_PLAYING
+                elif selection == 1:
+                    self.start_endless_mode()
+                elif selection == 2:
+                    self.state = GameState.MENU
+                    self.main_menu.set_menu("main")
+                    self.endless_manager = None
+
+        elif self.state == GameState.ENDLESS_GAME_OVER:
+            for event in events:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                        self.state = GameState.MENU
+                        self.main_menu.set_menu("main")
+                        self.endless_manager = None
+
+        elif self.state == GameState.ENDLESS_WAVE_TRANSITION:
+            pass
 
         elif self.state == GameState.PLAYING:
             for event in events:
@@ -362,6 +421,80 @@ class Game:
             self.main_menu.update()
             self.stage.update()
 
+        elif self.state == GameState.ENDLESS_PLAYING:
+            if self.endless_manager and self.player1:
+                result = self.endless_manager.update(self.player1)
+
+                if result == "game_over":
+                    self.state = GameState.ENDLESS_GAME_OVER
+                elif result == "transition":
+                    self.state = GameState.ENDLESS_WAVE_TRANSITION
+                elif result == "wave_complete":
+                    pass
+
+                if self.endless_manager.is_transitioning:
+                    self.state = GameState.ENDLESS_WAVE_TRANSITION
+
+                enemies = self.endless_manager.get_all_enemies()
+
+                if not self.endless_manager.is_transitioning:
+                    self.player1.update(enemies[0] if enemies else self.player1)
+
+                    for enemy in enemies:
+                        if enemy.health > 0:
+                            other_targets = [e for e in enemies if e != enemy and e.health > 0]
+                            all_targets = [self.player1] + other_targets if self.player1 else other_targets
+                            if all_targets:
+                                nearest = all_targets[0]
+                                min_dist = float('inf')
+                                for t in all_targets:
+                                    dist = abs(t.x - enemy.x)
+                                    if dist < min_dist:
+                                        min_dist = dist
+                                        nearest = t
+                                enemy.update(nearest)
+
+                    if self.player1:
+                        for enemy in enemies:
+                            if enemy.health > 0:
+                                self.player1.check_attack_hit(
+                                    enemy,
+                                    self.effect_manager.effects,
+                                    self.screen_shake
+                                )
+
+                    for enemy in enemies:
+                        if enemy.health > 0:
+                            if self.player1 and self.player1.health > 0:
+                                enemy.check_attack_hit(
+                                    self.player1,
+                                    self.effect_manager.effects,
+                                    self.screen_shake
+                                )
+
+                            for other in enemies:
+                                if other != enemy and other.health > 0:
+                                    enemy.check_attack_hit(
+                                        other,
+                                        self.effect_manager.effects,
+                                        self.screen_shake
+                                    )
+
+                self.effect_manager.update()
+                self.screen_shake.update()
+                self.stage.update()
+
+        elif self.state == GameState.ENDLESS_WAVE_TRANSITION:
+            if self.endless_manager:
+                self.endless_manager.transition_timer -= 1
+                if self.endless_manager.transition_timer <= 0:
+                    self.endless_manager.is_transitioning = False
+                    self.state = GameState.ENDLESS_PLAYING
+
+            self.effect_manager.update()
+            self.screen_shake.update()
+            self.stage.update()
+
     def render(self):
         self.screen.fill(BLACK)
 
@@ -436,6 +569,77 @@ class Game:
                 self.player1.total_damage_dealt,
                 self.player2.total_damage_dealt,
                 winner_is_p1
+            )
+
+        elif self.state in [GameState.ENDLESS_PLAYING, GameState.ENDLESS_WAVE_TRANSITION, GameState.ENDLESS_PAUSED]:
+            self.stage.render(self.screen, shake_x, shake_y)
+
+            if self.player1:
+                self.player1.render(self.screen, shake_x, shake_y)
+
+            if self.endless_manager:
+                enemies = self.endless_manager.get_all_enemies()
+                for enemy in enemies:
+                    if enemy.health > 0:
+                        enemy.render(self.screen, shake_x, shake_y)
+
+            self.effect_manager.render(self.screen, shake_x, shake_y)
+
+            if self.player1:
+                self.ui.render_health_bar(
+                    self.screen, 50, 30, 280, 30,
+                    self.player1.health, self.player1.max_health,
+                    True, self.player1.rage, self.player1.max_rage,
+                    "PLAYER 1"
+                )
+
+            if self.endless_manager:
+                diff_color = self.endless_manager.difficulty.get_color_for_difficulty()
+                diff_desc = self.endless_manager.difficulty.get_difficulty_description()
+
+                self.ui.render_endless_hud(
+                    self.screen,
+                    self.endless_manager.stats.current_wave,
+                    self.endless_manager.get_survival_time_formatted(),
+                    self.endless_manager.stats.current_combo_kills,
+                    self.endless_manager.stats.score,
+                    diff_color,
+                    diff_desc
+                )
+
+            if self.endless_manager and self.endless_manager.is_transitioning:
+                alpha = 0
+                timer = self.endless_manager.transition_timer
+                if timer > ENDLESS_WAVE_TRANSITION_FRAMES - 20:
+                    alpha = int((ENDLESS_WAVE_TRANSITION_FRAMES - timer) / 20 * 255)
+                elif timer > 30:
+                    alpha = 255
+                else:
+                    alpha = int(timer / 30 * 255)
+
+                current_wave = self.endless_manager.stats.current_wave
+                self.ui.render_endless_wave_transition(
+                    self.screen,
+                    current_wave,
+                    alpha,
+                    ENDLESS_WAVE_HEAL_AMOUNT if current_wave > 1 else 0
+                )
+
+        if self.state == GameState.ENDLESS_PAUSED:
+            self.ingame_menu.render_pause(self.screen)
+
+        if self.state == GameState.ENDLESS_GAME_OVER and self.endless_manager:
+            stats = self.endless_manager.stats
+            self.ingame_menu.render_endless_game_over(
+                self.screen,
+                stats.current_wave,
+                self.endless_manager.get_survival_time_formatted(),
+                stats.total_kills,
+                stats.max_combo,
+                stats.score,
+                stats.gold_reward,
+                stats.exp_reward,
+                stats.talent_points_reward
             )
 
         pygame.display.flip()

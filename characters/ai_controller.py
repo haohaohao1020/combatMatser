@@ -16,11 +16,15 @@ class AIController:
         self.character = character
         self.difficulty = difficulty
         self.ai_timer = 0
+        self._dynamic_params: dict = {}
 
         self.character.is_ai = True
         self.character.difficulty = difficulty
 
     def _get_difficulty_params(self) -> dict:
+        if self._dynamic_params:
+            return self._dynamic_params
+
         if self.difficulty == "easy":
             return {
                 "reaction_time": 30,
@@ -30,6 +34,8 @@ class AIController:
                 "combo_chance": 0.3,
                 "crouch_chance": 0.2,
                 "move_smartness": 0.5,
+                "ultimate_chance": 0.0,
+                "prediction_chance": 0.0,
             }
         else:
             return {
@@ -40,6 +46,8 @@ class AIController:
                 "combo_chance": 0.7,
                 "crouch_chance": 0.4,
                 "move_smartness": 0.9,
+                "ultimate_chance": 0.3,
+                "prediction_chance": 0.2,
             }
 
     def update(self, opponent: Character):
@@ -63,9 +71,11 @@ class AIController:
 
         char.facing = target_facing
 
+        ultimate_chance = params.get("ultimate_chance", 0.0)
         if char.rage >= char.max_rage and self.ai_timer % 10 == 0:
-            char.start_ultimate()
-            return
+            if random.random() < max(0.1, ultimate_chance):
+                char.start_ultimate()
+                return
 
         if opponent.is_attacking and opponent.current_attack:
             attack = opponent.current_attack
@@ -80,7 +90,7 @@ class AIController:
                 if random.random() < params["block_chance"] and char.is_grounded:
                     char.is_blocking = True
                     char.state = CharacterState.BLOCK
-                    if self.difficulty == "hard":
+                    if self._dynamic_params or self.difficulty == "hard":
                         char.perfect_block_window = 12
                     return
 
@@ -124,23 +134,32 @@ class AIController:
             if char.ai_attack_cooldown <= 0:
                 roll = random.random()
 
+                cooldown_mult = 1.0
+                if self._dynamic_params:
+                    cooldown_mult = 0.8
+                else:
+                    cooldown_mult = 0.6 if self.difficulty == "hard" else 1.0
+
                 if roll < params["attack_chance"] * 0.6:
                     char.start_attack(get_light_attack())
-                    char.ai_attack_cooldown = 60 if self.difficulty == "easy" else 40
+                    char.ai_attack_cooldown = int(60 * cooldown_mult)
 
                 elif roll < params["attack_chance"] * 0.85:
                     char.start_attack(get_heavy_attack())
-                    char.ai_attack_cooldown = 80 if self.difficulty == "easy" else 60
+                    char.ai_attack_cooldown = int(80 * cooldown_mult)
 
                 elif roll < params["attack_chance"]:
                     char.start_attack(get_low_attack())
-                    char.ai_attack_cooldown = 70 if self.difficulty == "easy" else 50
+                    char.ai_attack_cooldown = int(70 * cooldown_mult)
 
-        if self.difficulty == "hard":
+        use_hard_ai = self._dynamic_params or self.difficulty == "hard"
+        prediction_chance = params.get("prediction_chance", 0.0)
+
+        if use_hard_ai:
             if char.is_grounded and abs_dist_x < 200 and random.random() < 0.005:
                 char.jump()
 
-            if char.is_grounded and abs_dist_x < 150 and random.random() < 0.01:
+            if char.is_grounded and abs_dist_x < 150 and random.random() < prediction_chance + 0.01:
                 if opponent.vel_x > 0:
                     char.vel_x = -WALK_SPEED
                 else:

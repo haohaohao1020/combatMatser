@@ -4,7 +4,7 @@ from typing import Optional
 from config import (
     SCREEN_WIDTH, SCREEN_HEIGHT,
     BLACK, WHITE, GRAY, DARK_GRAY,
-    YELLOW, LIGHT_GRAY, BLUE, RED, CYAN, PINK,
+    YELLOW, LIGHT_GRAY, BLUE, RED, CYAN, PINK, PURPLE, ORANGE,
     clamp_color, with_alpha
 )
 
@@ -148,4 +148,92 @@ class InGameMenu:
             surface.blit(hint_text, (
                 SCREEN_WIDTH // 2 - hint_text.get_width() // 2,
                 SCREEN_HEIGHT - 80
+            ))
+
+    def render_endless_game_over(
+        self,
+        surface: pygame.Surface,
+        final_wave: int,
+        survival_time: str,
+        total_kills: int,
+        max_combo: int,
+        final_score: int,
+        gold_reward: int,
+        exp_reward: int,
+        talent_points: int
+    ):
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay_alpha = clamp_color(220)
+        overlay.fill(with_alpha(BLACK, overlay_alpha))
+        surface.blit(overlay, (0, 0))
+
+        if self.font_title:
+            game_over_text = self.font_title.render("GAME OVER", True, RED)
+            surface.blit(game_over_text, (
+                SCREEN_WIDTH // 2 - game_over_text.get_width() // 2,
+                80
+            ))
+
+        panel_width = 400
+        panel_height = 380
+        panel_x = SCREEN_WIDTH // 2 - panel_width // 2
+        panel_y = 160
+
+        panel_surface = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+        panel_alpha = clamp_color(200)
+        panel_color = with_alpha(DARK_GRAY, panel_alpha)
+        pygame.draw.rect(panel_surface, panel_color, (0, 0, panel_width, panel_height), border_radius=15)
+        pygame.draw.rect(panel_surface, ORANGE, (0, 0, panel_width, panel_height), 3, border_radius=15)
+
+        surface.blit(panel_surface, (panel_x, panel_y))
+
+        if self.font_small:
+            stats_y = 20
+            spacing = 40
+
+            stats = [
+                ("WAVE REACHED", str(final_wave), YELLOW),
+                ("SURVIVAL TIME", survival_time, CYAN),
+                ("TOTAL KILLS", str(total_kills), WHITE),
+                ("MAX COMBO", str(max_combo), ORANGE),
+                ("FINAL SCORE", f"{final_score:,}", GREEN),
+            ]
+
+            for label, value, color in stats:
+                label_text = self.font_small.render(label, True, LIGHT_GRAY)
+                value_text = self.font_small.render(value, True, color)
+
+                surface.blit(label_text, (panel_x + 20, panel_y + stats_y))
+                surface.blit(value_text, (panel_x + panel_width - value_text.get_width() - 20, panel_y + stats_y))
+                stats_y += spacing
+
+            pygame.draw.line(surface, GRAY, (panel_x + 20, panel_y + stats_y), (panel_x + panel_width - 20, panel_y + stats_y), 2)
+            stats_y += 20
+
+            rewards_header = self.font_small.render("REWARDS", True, YELLOW)
+            surface.blit(rewards_header, (panel_x + panel_width // 2 - rewards_header.get_width() // 2, panel_y + stats_y))
+            stats_y += 40
+
+            rewards = [
+                ("GOLD", str(gold_reward), YELLOW),
+                ("EXP", str(exp_reward), CYAN),
+                ("TALENT POINTS", str(talent_points), PURPLE),
+            ]
+
+            for label, value, color in rewards:
+                label_text = self.font_small.render(label, True, LIGHT_GRAY)
+                value_text = self.font_small.render(value, True, color)
+
+                surface.blit(label_text, (panel_x + 20, panel_y + stats_y))
+                surface.blit(value_text, (panel_x + panel_width - value_text.get_width() - 20, panel_y + stats_y))
+                stats_y += spacing
+
+        if self.font_small:
+            hint_text = self.font_small.render(
+                "Press ENTER to return to menu",
+                True, GRAY
+            )
+            surface.blit(hint_text, (
+                SCREEN_WIDTH // 2 - hint_text.get_width() // 2,
+                SCREEN_HEIGHT - 60
             ))

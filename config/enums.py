@@ -9,6 +9,10 @@ class GameState(Enum):
     PAUSED = auto()
     ROUND_END = auto()
     GAME_OVER = auto()
+    ENDLESS_PLAYING = auto()
+    ENDLESS_PAUSED = auto()
+    ENDLESS_WAVE_TRANSITION = auto()
+    ENDLESS_GAME_OVER = auto()
 
 
 class CharacterState(Enum):

@@ -1,6 +1,7 @@
 from .constants import *
 from .enums import *
 from .utils import *
+from .endless_difficulty import EndlessDifficulty
 
 __all__ = [
     'SCREEN_WIDTH', 'SCREEN_HEIGHT', 'FPS', 'GROUND_Y', 'ROUND_TIME', 'MAX_ROUNDS',
@@ -15,7 +16,12 @@ __all__ = [
     'LIGHT_GRAY', 'CYAN', 'PINK',
     'PLAYER1_COLOR', 'PLAYER1_COLOR_DARK', 'PLAYER1_ACCENT',
     'PLAYER2_COLOR', 'PLAYER2_COLOR_DARK', 'PLAYER2_ACCENT',
-    'GameState', 'CharacterState', 'AttackType',
+    'ENDLESS_BASE_SCORE', 'ENDLESS_COMBO_BONUS_MULTIPLIER',
+    'ENDLESS_WAVE_BONUS_MULTIPLIER', 'ENDLESS_SURVIVAL_BONUS_PER_SECOND',
+    'ENDLESS_WAVE_TRANSITION_FRAMES', 'ENDLESS_WAVE_HEAL_AMOUNT',
+    'ENDLESS_WAVE_ENERGY_RESTORE', 'ENDLESS_MAX_ENEMIES_AT_ONCE',
+    'ENDLESS_FIRST_MULTI_ENEMY_WAVE', 'ENDLESS_DIFFICULTY_INCREASE_WAVE',
+    'GameState', 'CharacterState', 'AttackType', 'EndlessDifficulty',
     'clamp_color', 'safe_color', 'lerp_color', 'scale_color', 'add_color', 'with_alpha',
     'lerp', 'clamp', 'get_distance'
 ]
