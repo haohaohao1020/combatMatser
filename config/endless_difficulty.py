@@ -71,7 +71,7 @@ class EndlessDifficulty:
             return 1
 
         extra_waves = self.current_wave - ENDLESS_FIRST_MULTI_ENEMY_WAVE
-        count = 1 + (extra_waves // 2)
+        count = 2 + (extra_waves // 2)
         return min(count, ENDLESS_MAX_ENEMIES_AT_ONCE)
 
     def get_health_multiplier(self) -> float:

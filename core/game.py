@@ -1,6 +1,6 @@
 import pygame
 import sys
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 from config import (
     GameState, CharacterState,
@@ -10,10 +10,11 @@ from config import (
     ENDLESS_WAVE_HEAL_AMOUNT, ENDLESS_WAVE_TRANSITION_FRAMES
 )
 from characters import Character, AIController, add_ai_to_character
+from characters.hero_system import HeroCharacter, HeroType, create_hero, get_all_hero_types
 from attacks import get_light_attack, get_heavy_attack, get_low_attack
 from effects import EffectManager, ScreenShake
 from ui import UI, InGameMenu
-from menus import MainMenu
+from menus import MainMenu, HeroSelectMenu
 from stage import Stage
 from core.endless_mode import EndlessModeManager
 
@@ -42,8 +43,12 @@ class Game:
         self.round_transition_timer = 0
         self.round_transition_text = ""
 
-        self.player1: Optional[Character] = None
-        self.player2: Optional[Character] = None
+        self.player1_hero_type: Optional[HeroType] = HeroType.BASIC_FIGHTER
+        self.player2_hero_type: Optional[HeroType] = HeroType.BASIC_FIGHTER
+        self.use_hero_system = True
+
+        self.player1: Optional[HeroCharacter] = None
+        self.player2: Optional[HeroCharacter] = None
         self.ai_controller: Optional[AIController] = None
         self.stage = Stage()
         self.effect_manager = EffectManager()
@@ -53,10 +58,12 @@ class Game:
 
         self.ui = UI()
         self.main_menu = MainMenu()
+        self.hero_select_menu = HeroSelectMenu()
         self.ingame_menu = InGameMenu()
 
         self.ui.init_fonts()
         self.main_menu.init_fonts()
+        self.hero_select_menu.init_fonts()
         self.ingame_menu.init_fonts()
 
         self.main_menu.set_menu("main")
@@ -64,8 +71,12 @@ class Game:
     def start_new_round(self):
         ground_y = GROUND_Y - PLAYER_HEIGHT
 
-        self.player1 = Character(200, ground_y, is_player1=True)
-        self.player2 = Character(SCREEN_WIDTH - 260, ground_y, is_player1=False)
+        if self.use_hero_system and self.player1_hero_type and self.player2_hero_type:
+            self.player1 = create_hero(200, ground_y, is_player1=True, hero_type=self.player1_hero_type)
+            self.player2 = create_hero(SCREEN_WIDTH - 260, ground_y, is_player1=False, hero_type=self.player2_hero_type)
+        else:
+            self.player1 = Character(200, ground_y, is_player1=True)
+            self.player2 = Character(SCREEN_WIDTH - 260, ground_y, is_player1=False)
 
         if self.game_mode == "pvc":
             self.ai_controller = add_ai_to_character(self.player2, self.difficulty)
@@ -85,6 +96,13 @@ class Game:
         self.current_round = 1
         self.p1_wins = 0
         self.p2_wins = 0
+        self.hero_select_menu.reset_selection()
+        self.state = GameState.HERO_SELECT
+
+    def start_game_after_hero_select(self):
+        self.current_round = 1
+        self.p1_wins = 0
+        self.p2_wins = 0
         self.start_new_round()
         self.state = GameState.PLAYING
 
@@ -92,7 +110,12 @@ class Game:
         self.endless_manager = EndlessModeManager()
 
         ground_y = GROUND_Y - PLAYER_HEIGHT
-        self.player1 = Character(SCREEN_WIDTH // 2 - PLAYER_WIDTH // 2, ground_y, is_player1=True)
+        if self.use_hero_system and self.player1_hero_type:
+            self.player1 = create_hero(SCREEN_WIDTH // 2 - PLAYER_WIDTH // 2, ground_y,
+                                       is_player1=True, hero_type=self.player1_hero_type)
+        else:
+            self.player1 = Character(SCREEN_WIDTH // 2 - PLAYER_WIDTH // 2, ground_y, is_player1=True)
+
         self.player2 = None
         self.ai_controller = None
 
@@ -301,6 +324,29 @@ class Game:
                     elif selection == 2:
                         self.main_menu.set_menu("mode")
 
+        elif self.state == GameState.HERO_SELECT:
+            self.hero_select_menu.update()
+            selection = self.hero_select_menu.handle_input(keys, events)
+
+            if selection is not None:
+                result_code, p1_hero, p2_hero = selection
+                if result_code == 0:
+                    if p1_hero:
+                        self.player1_hero_type = p1_hero
+                    if p2_hero:
+                        self.player2_hero_type = p2_hero
+                    if self.game_mode == "pvc":
+                        self.player2_hero_type = HeroType.BASIC_FIGHTER
+                        self.start_game_after_hero_select()
+                    else:
+                        self.start_game_after_hero_select()
+                elif result_code == 1:
+                    if self.game_mode == "pvc":
+                        self.main_menu.set_menu("difficulty")
+                    else:
+                        self.main_menu.set_menu("mode")
+                    self.state = GameState.MENU
+
         elif self.state == GameState.ENDLESS_PLAYING:
             for event in events:
                 if event.type == pygame.KEYDOWN:
@@ -421,6 +467,10 @@ class Game:
             self.main_menu.update()
             self.stage.update()
 
+        elif self.state == GameState.HERO_SELECT:
+            self.hero_select_menu.update()
+            self.stage.update()
+
         elif self.state == GameState.ENDLESS_PLAYING:
             if self.endless_manager and self.player1:
                 result = self.endless_manager.update(self.player1)
@@ -503,6 +553,10 @@ class Game:
         if self.state == GameState.MENU:
             self.stage.render(self.screen)
             self.main_menu.render(self.screen)
+
+        elif self.state == GameState.HERO_SELECT:
+            self.stage.render(self.screen)
+            self.hero_select_menu.render(self.screen)
 
         elif self.state in [GameState.PLAYING, GameState.PAUSED, GameState.ROUND_END]:
             self.stage.render(self.screen, shake_x, shake_y)

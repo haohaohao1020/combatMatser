@@ -1,18 +1,22 @@
 import random
-from typing import Optional
+from typing import Optional, Union
 
 from config import (
     CharacterState, WALK_SPEED,
     clamp
 )
 from characters.character import Character
+from characters.hero_system.hero_base import HeroCharacter
 from attacks import (
     get_light_attack, get_heavy_attack, get_low_attack
 )
 
 
+CharacterType = Union[Character, HeroCharacter]
+
+
 class AIController:
-    def __init__(self, character: Character, difficulty: str = "easy"):
+    def __init__(self, character: CharacterType, difficulty: str = "easy"):
         self.character = character
         self.difficulty = difficulty
         self.ai_timer = 0
@@ -50,7 +54,7 @@ class AIController:
                 "prediction_chance": 0.2,
             }
 
-    def update(self, opponent: Character):
+    def update(self, opponent: CharacterType):
         char = self.character
 
         if char.hitstun > 0 or char.grounded_timer > 0:
@@ -166,5 +170,5 @@ class AIController:
                     char.vel_x = WALK_SPEED
 
 
-def add_ai_to_character(character: Character, difficulty: str = "easy") -> AIController:
+def add_ai_to_character(character: CharacterType, difficulty: str = "easy") -> AIController:
     return AIController(character, difficulty)

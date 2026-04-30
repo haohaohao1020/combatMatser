@@ -5,6 +5,7 @@ class GameState(Enum):
     MENU = auto()
     MODE_SELECT = auto()
     DIFFICULTY_SELECT = auto()
+    HERO_SELECT = auto()
     PLAYING = auto()
     PAUSED = auto()
     ROUND_END = auto()
