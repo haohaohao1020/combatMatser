@@ -31,36 +31,72 @@ class HeroSelectMenu:
         self.single_player_mode = False
 
     def init_fonts(self):
-        chinese_fonts = [
+        chinese_font_names = [
+            "microsoftyahei",
+            "msyh",
+            "simhei",
+            "simsun",
+            "microsoftyaheiui",
+            "fangsong",
+            "kaiti",
+            "youyuan",
+        ]
+
+        chinese_font_files = [
             "msyh.ttc",
             "simhei.ttf",
             "simsun.ttc",
-            "notosanscjksc-regular.otf",
+            "msyhl.ttc",
+            "msyhbd.ttc",
         ]
 
-        self.font_title = self._load_chinese_font(80, chinese_fonts)
-        self.font_large = self._load_chinese_font(56, chinese_fonts)
-        self.font_medium = self._load_chinese_font(42, chinese_fonts)
-        self.font_small = self._load_chinese_font(32, chinese_fonts)
-        self.font_hint = self._load_chinese_font(26, chinese_fonts)
+        self.font_title = self._load_chinese_font(80, chinese_font_names, chinese_font_files)
+        self.font_large = self._load_chinese_font(56, chinese_font_names, chinese_font_files)
+        self.font_medium = self._load_chinese_font(42, chinese_font_names, chinese_font_files)
+        self.font_small = self._load_chinese_font(32, chinese_font_names, chinese_font_files)
+        self.font_hint = self._load_chinese_font(26, chinese_font_names, chinese_font_files)
 
-    def _load_chinese_font(self, size: int, font_list: List[str]) -> pygame.font.Font:
-        for font_name in font_list:
+    def _load_chinese_font(self, size: int, font_names: List[str], font_files: List[str]) -> pygame.font.Font:
+        import os
+
+        test_text = "测试中文"
+
+        for font_name in font_names:
+            try:
+                font = pygame.font.SysFont(font_name, size)
+                if font:
+                    try:
+                        rendered = font.render(test_text, True, (255, 255, 255))
+                        if rendered and rendered.get_width() > 0:
+                            return font
+                    except:
+                        continue
+            except:
+                continue
+
+        windows_fonts_path = "C:\\Windows\\Fonts"
+        for font_file in font_files:
+            try:
+                font_path = os.path.join(windows_fonts_path, font_file)
+                if os.path.exists(font_path):
+                    font = pygame.font.Font(font_path, size)
+                    if font:
+                        try:
+                            rendered = font.render(test_text, True, (255, 255, 255))
+                            if rendered and rendered.get_width() > 0:
+                                return font
+                        except:
+                            continue
+            except:
+                continue
+
+        for font_name in ["arial", "courier", "times"]:
             try:
                 font = pygame.font.SysFont(font_name, size)
                 if font:
                     return font
             except:
                 continue
-
-        try:
-            import os
-            for font_name in font_list:
-                sys_font_path = os.path.join("C:\\Windows\\Fonts", font_name)
-                if os.path.exists(sys_font_path):
-                    return pygame.font.Font(sys_font_path, size)
-        except:
-            pass
 
         return pygame.font.Font(None, size)
 

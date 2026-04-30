@@ -284,7 +284,7 @@ class HeroCharacter:
                     self.state = CharacterState.BLOCK
                     self.block_high = not keys[pygame.K_DOWN]
 
-            if keys[pygame.K_RETURN] and self.rage >= self.max_rage and can_attack:
+            if (keys[pygame.K_RETURN] or keys[pygame.K_KP_ENTER] or keys[pygame.K_KP0]) and self.rage >= self.max_rage and can_attack:
                 self.start_ultimate()
 
             if keys[pygame.K_RSHIFT] and self.dodge_cooldown <= 0 and can_attack:
