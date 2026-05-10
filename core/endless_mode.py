@@ -30,6 +30,7 @@ class EndlessStats:
     total_kills: int = 0
     current_combo_kills: int = 0
     max_combo_kills: int = 0
+    max_combo: int = 0
     combo_timer: int = 0
     score: int = 0
     survival_frames: int = 0
@@ -264,6 +265,10 @@ class EndlessModeManager:
 
         if self.stats.current_combo_kills > self.stats.max_combo_kills:
             self.stats.max_combo_kills = self.stats.current_combo_kills
+
+        if self.player:
+            if self.player.hit_combo > self.stats.max_combo:
+                self.stats.max_combo = self.player.hit_combo
 
         base_score = ENDLESS_BASE_SCORE
         combo_bonus = int(base_score * self.stats.current_combo_kills * ENDLESS_COMBO_BONUS_MULTIPLIER)

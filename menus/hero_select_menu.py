@@ -14,7 +14,7 @@ from progression import ProgressionManager, TalentBranch
 
 
 class HeroSelectMenu:
-    def __init__(self):
+    def __init__(self, progression_manager=None):
         self.font_title: Optional[pygame.font.Font] = None
         self.font_large: Optional[pygame.font.Font] = None
         self.font_medium: Optional[pygame.font.Font] = None
@@ -33,7 +33,7 @@ class HeroSelectMenu:
         self.single_player_mode = False
 
         self.current_view = "select"
-        self.progression = ProgressionManager()
+        self.progression = progression_manager if progression_manager else ProgressionManager()
 
         self.selected_talent_branch: str = "attack"
         self.selected_talent_index: int = 0
@@ -41,6 +41,9 @@ class HeroSelectMenu:
 
         self.menu_buttons: List[Dict[str, Any]] = []
         self._init_buttons()
+
+    def set_progression_manager(self, progression_manager):
+        self.progression = progression_manager
 
     def _init_buttons(self):
         button_width = 200

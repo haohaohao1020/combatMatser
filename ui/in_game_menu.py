@@ -3,7 +3,7 @@ from typing import Optional
 
 from config import (
     SCREEN_WIDTH, SCREEN_HEIGHT,
-    BLACK, WHITE, GRAY, DARK_GRAY,
+    BLACK, WHITE, GRAY, DARK_GRAY, GREEN,
     YELLOW, LIGHT_GRAY, BLUE, RED, CYAN, PINK, PURPLE, ORANGE,
     clamp_color, with_alpha
 )

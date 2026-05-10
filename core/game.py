@@ -65,6 +65,7 @@ class Game:
         self.ui = UI()
         self.main_menu = MainMenu()
         self.hero_select_menu = HeroSelectMenu()
+        self.hero_select_menu.set_progression_manager(self.progression)
         self.ingame_menu = InGameMenu()
 
         self.ui.init_fonts()
@@ -660,27 +661,16 @@ class Game:
             self.hero_select_menu.render(self.screen)
             self.ui.render_gold_display(self.screen, self.progression.get_total_gold(), x=SCREEN_WIDTH - 170, y=10)
 
-            if self.player1_hero_type:
-                p1_prog = self.progression.get_character_progression(self.player1_hero_type.name)
+            current_hero = self.hero_select_menu.get_hero_at_index(self.hero_select_menu.selected_index)
+            if current_hero:
+                current_prog = self.progression.get_character_progression(current_hero.name)
                 self.ui.render_hero_level_info(
                     self.screen,
-                    p1_prog.level,
-                    p1_prog.current_experience,
-                    p1_prog.experience_to_next,
-                    p1_prog.available_talent_points,
-                    x=10,
-                    y=SCREEN_HEIGHT - 70
-                )
-
-            if self.player2_hero_type and not self.hero_select_menu.single_player_mode:
-                p2_prog = self.progression.get_character_progression(self.player2_hero_type.name)
-                self.ui.render_hero_level_info(
-                    self.screen,
-                    p2_prog.level,
-                    p2_prog.current_experience,
-                    p2_prog.experience_to_next,
-                    p2_prog.available_talent_points,
-                    x=SCREEN_WIDTH - 290,
+                    current_prog.level,
+                    current_prog.current_experience,
+                    current_prog.experience_to_next,
+                    current_prog.available_talent_points,
+                    x=SCREEN_WIDTH // 2 - 140,
                     y=SCREEN_HEIGHT - 70
                 )
 

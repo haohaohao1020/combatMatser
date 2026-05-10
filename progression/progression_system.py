@@ -83,9 +83,8 @@ class CharacterProgressionData:
             self.level += 1
             total_levels_gained += 1
 
-            if self.level % 5 == 0:
-                self.total_talent_points_earned += 1
-                self.available_talent_points += 1
+            self.total_talent_points_earned += 2
+            self.available_talent_points += 2
 
             if not self.is_max_level:
                 self.experience_to_next = self.get_experience_for_level(self.level + 1)
@@ -141,8 +140,12 @@ class CharacterProgressionData:
         for talent_id, points in self.talents_spent.items():
             talent = talent_tree.get(talent_id)
             if talent and points > 0:
+                total_effect = 0.0
+                for i in range(1, points + 1):
+                    multiplier = 1.0 + (i - 1) * 0.5
+                    total_effect += talent.effect_value * multiplier
                 current_val = effects.get(talent.effect_type, 0.0)
-                effects[talent.effect_type] = current_val + (talent.effect_value * points)
+                effects[talent.effect_type] = current_val + total_effect
         return effects
 
     def to_dict(self) -> Dict[str, Any]:
@@ -269,58 +272,58 @@ def create_default_talent_tree() -> Dict[str, TalentData]:
             talent_id="atk_combo_damage",
             branch=TalentBranch.ATTACK,
             name="连击精通",
-            description="连招伤害 +10%",
+            description="连招伤害 +8%/12%/15%",
             tier=1,
             effect_type="combo_damage_bonus",
-            effect_value=0.10,
-            max_points=1,
+            effect_value=0.08,
+            max_points=3,
             unlocked=True
         ),
         TalentData(
             talent_id="atk_ultimate_damage",
             branch=TalentBranch.ATTACK,
             name="必杀强化",
-            description="必杀技能伤害 +15%",
+            description="必杀技能伤害 +10%/15%/20%",
             tier=1,
             effect_type="ultimate_damage_bonus",
-            effect_value=0.15,
-            max_points=1,
+            effect_value=0.10,
+            max_points=3,
             unlocked=True
         ),
         TalentData(
             talent_id="atk_knockback",
             branch=TalentBranch.ATTACK,
             name="重击击退",
-            description="普通攻击击退距离增加",
+            description="普通攻击击退距离 +15%/25%/35%",
             tier=2,
             requires=["atk_combo_damage"],
             effect_type="knockback_bonus",
-            effect_value=0.20,
-            max_points=1,
+            effect_value=0.15,
+            max_points=3,
             unlocked=False
         ),
         TalentData(
             talent_id="atk_rage_gen",
             branch=TalentBranch.ATTACK,
             name="怒气爆发",
-            description="攻击命中更容易攒能量",
+            description="攻击命中额外攒能量 +5/10/15",
             tier=2,
             requires=["atk_ultimate_damage"],
             effect_type="rage_on_hit_bonus",
             effect_value=5.0,
-            max_points=1,
+            max_points=3,
             unlocked=False
         ),
         TalentData(
             talent_id="atk_crit_chance",
             branch=TalentBranch.ATTACK,
             name="致命打击",
-            description="攻击有概率造成暴击伤害",
+            description="暴击概率 +6%/12%/20%",
             tier=3,
             requires=["atk_knockback", "atk_rage_gen"],
             effect_type="crit_chance",
-            effect_value=0.10,
-            max_points=1,
+            effect_value=0.06,
+            max_points=3,
             unlocked=False
         ),
     ]
@@ -330,58 +333,58 @@ def create_default_talent_tree() -> Dict[str, TalentData]:
             talent_id="def_global_reduction",
             branch=TalentBranch.DEFENSE,
             name="钢筋铁骨",
-            description="受到所有伤害 -8%",
+            description="受到所有伤害 -5%/10%/15%",
             tier=1,
             effect_type="damage_reduction",
-            effect_value=0.08,
-            max_points=1,
+            effect_value=0.05,
+            max_points=3,
             unlocked=True
         ),
         TalentData(
             talent_id="def_block_effectiveness",
             branch=TalentBranch.DEFENSE,
             name="格挡大师",
-            description="格挡减伤比例提升",
+            description="格挡减伤比例 +10%/20%/30%",
             tier=1,
             effect_type="block_reduction_bonus",
-            effect_value=0.15,
-            max_points=1,
+            effect_value=0.10,
+            max_points=3,
             unlocked=True
         ),
         TalentData(
             talent_id="def_perfect_block_window",
             branch=TalentBranch.DEFENSE,
             name="精准防御",
-            description="完美格挡判定窗口变大",
+            description="完美格挡判定窗口 +4/8/12 帧",
             tier=2,
             requires=["def_global_reduction"],
             effect_type="perfect_block_frames",
-            effect_value=5.0,
-            max_points=1,
+            effect_value=4.0,
+            max_points=3,
             unlocked=False
         ),
         TalentData(
             talent_id="def_getup_speed",
             branch=TalentBranch.DEFENSE,
             name="快速起身",
-            description="倒地起身速度加快",
+            description="倒地起身速度 +20%/35%/50%",
             tier=2,
             requires=["def_block_effectiveness"],
             effect_type="getup_speed_bonus",
-            effect_value=0.30,
-            max_points=1,
+            effect_value=0.20,
+            max_points=3,
             unlocked=False
         ),
         TalentData(
             talent_id="def_health_regen",
             branch=TalentBranch.DEFENSE,
             name="生命回复",
-            description="开局和回合开始获得额外生命",
+            description="额外生命 +80/150/250",
             tier=3,
             requires=["def_perfect_block_window", "def_getup_speed"],
             effect_type="health_regen_bonus",
-            effect_value=100.0,
-            max_points=1,
+            effect_value=80.0,
+            max_points=3,
             unlocked=False
         ),
     ]
@@ -391,58 +394,58 @@ def create_default_talent_tree() -> Dict[str, TalentData]:
             talent_id="tech_dodge_cdr",
             branch=TalentBranch.TECHNIQUE,
             name="闪避精通",
-            description="闪避冷却时间减少",
+            description="闪避冷却时间 -12%/25%/40%",
             tier=1,
             effect_type="dodge_cooldown_reduction",
-            effect_value=0.20,
-            max_points=1,
+            effect_value=0.12,
+            max_points=3,
             unlocked=True
         ),
         TalentData(
             talent_id="tech_throw_range",
             branch=TalentBranch.TECHNIQUE,
             name="投技延展",
-            description="投技范围扩大",
+            description="投技范围 +15%/30%/50%",
             tier=1,
             effect_type="throw_range_bonus",
-            effect_value=0.25,
-            max_points=1,
+            effect_value=0.15,
+            max_points=3,
             unlocked=True
         ),
         TalentData(
             talent_id="tech_combo_decay",
             branch=TalentBranch.TECHNIQUE,
             name="连击延续",
-            description="连击伤害衰减变慢",
+            description="连击伤害衰减 -1.5%/3%/5%",
             tier=2,
             requires=["tech_dodge_cdr"],
             effect_type="combo_decay_reduction",
-            effect_value=0.02,
-            max_points=1,
+            effect_value=0.015,
+            max_points=3,
             unlocked=False
         ),
         TalentData(
             talent_id="tech_starting_rage",
             branch=TalentBranch.TECHNIQUE,
             name="先发制人",
-            description="对局初始能量小幅赠送",
+            description="对局初始能量 +15/30/50",
             tier=2,
             requires=["tech_throw_range"],
             effect_type="starting_rage_bonus",
-            effect_value=20.0,
-            max_points=1,
+            effect_value=15.0,
+            max_points=3,
             unlocked=False
         ),
         TalentData(
             talent_id="tech_ultimate_cdr",
             branch=TalentBranch.TECHNIQUE,
             name="能量涌动",
-            description="攻击命中额外回复怒气",
+            description="攻击命中额外回复怒气 +2/5/10",
             tier=3,
             requires=["tech_combo_decay", "tech_starting_rage"],
             effect_type="rage_gen_passive",
-            effect_value=3.0,
-            max_points=1,
+            effect_value=2.0,
+            max_points=3,
             unlocked=False
         ),
     ]

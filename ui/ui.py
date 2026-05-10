@@ -18,6 +18,7 @@ class UI:
         self.font_large: Optional[pygame.font.Font] = None
         self.font_medium: Optional[pygame.font.Font] = None
         self.font_small: Optional[pygame.font.Font] = None
+        self.font_tiny: Optional[pygame.font.Font] = None
 
         self.round_transition_alpha = 0
         self.round_transition_text = ""
@@ -26,6 +27,7 @@ class UI:
         self.font_large = pygame.font.Font(None, 72)
         self.font_medium = pygame.font.Font(None, 48)
         self.font_small = pygame.font.Font(None, 32)
+        self.font_tiny = pygame.font.Font(None, 20)
 
     def render_health_bar(
         self,
@@ -426,3 +428,7 @@ class UI:
                     pygame.draw.line(surface, color, (bar_x + i, bar_y + 2), (bar_x + i, bar_y + bar_height - 2))
 
         pygame.draw.rect(surface, ORANGE, (bar_x, bar_y, bar_width, bar_height), 1, border_radius=3)
+
+        if self.font_tiny:
+            exp_text = self.font_tiny.render(f"{current_exp}/{exp_to_next}", True, WHITE)
+            surface.blit(exp_text, (bar_x + bar_width // 2 - exp_text.get_width() // 2, bar_y - 20))
