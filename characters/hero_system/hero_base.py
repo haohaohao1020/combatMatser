@@ -75,6 +75,7 @@ class SkillData:
 
 @dataclass
 class HeroStats:
+    base_max_health: int = MAX_HEALTH
     max_health: int = MAX_HEALTH
     max_rage: int = MAX_RAGE
     walk_speed: float = WALK_SPEED
@@ -100,10 +101,12 @@ class HeroCharacter:
         self.state = CharacterState.IDLE
 
         self.stats = self._get_default_stats()
+        self.progression_bonuses: Dict[str, float] = {}
+        self._apply_progression_bonuses()
         self.max_health = self.stats.max_health
         self.health = self.max_health
         self.max_rage = self.stats.max_rage
-        self.rage = 0
+        self.rage = self._get_starting_rage()
 
         self.jump_count = 0
         self.max_jumps = 2
@@ -169,6 +172,65 @@ class HeroCharacter:
     def _get_hero_info(self) -> Dict:
         from characters.hero_system.character_types import HERO_INFO
         return HERO_INFO.get(self.hero_type, {})
+
+    def set_progression_bonuses(self, bonuses: Dict[str, float]):
+        self.progression_bonuses = dict(bonuses)
+        self._apply_progression_bonuses()
+
+    def _apply_progression_bonuses(self):
+        bonuses = self.progression_bonuses
+        self.stats.base_max_health = self.stats.max_health
+
+        health_bonus = bonuses.get("max_health_bonus", 0.0)
+        if health_bonus > 0:
+            self.stats.max_health = int(self.stats.base_max_health + health_bonus)
+
+        attack_bonus = bonuses.get("attack_power_percent", 0.0)
+        if attack_bonus > 0:
+            self.stats.attack_multiplier = 1.0 + attack_bonus
+
+        move_speed_bonus = bonuses.get("move_speed_bonus", 0.0)
+        if move_speed_bonus > 0:
+            self.stats.walk_speed = WALK_SPEED * (1.0 + move_speed_bonus)
+
+        damage_reduction = bonuses.get("damage_reduction", 0.0)
+        if damage_reduction > 0:
+            self.stats.defense_multiplier = 1.0 + damage_reduction
+
+    def _get_starting_rage(self) -> float:
+        return self.progression_bonuses.get("starting_rage_bonus", 0.0)
+
+    def get_dodge_cooldown_max(self) -> int:
+        base_cooldown = 60
+        cdr = self.progression_bonuses.get("dodge_cooldown_reduction", 0.0)
+        return int(base_cooldown * (1.0 - cdr))
+
+    def get_perfect_block_window_bonus(self) -> int:
+        return int(self.progression_bonuses.get("perfect_block_frames", 0.0))
+
+    def get_block_reduction_bonus(self) -> float:
+        return self.progression_bonuses.get("block_reduction_bonus", 0.0)
+
+    def get_rage_on_hit_bonus(self) -> float:
+        return self.progression_bonuses.get("rage_on_hit_bonus", 0.0)
+
+    def get_ultimate_damage_bonus(self) -> float:
+        return self.progression_bonuses.get("ultimate_damage_bonus", 0.0)
+
+    def get_combo_damage_bonus(self) -> float:
+        return self.progression_bonuses.get("combo_damage_bonus", 0.0)
+
+    def get_combo_decay_reduction(self) -> float:
+        return self.progression_bonuses.get("combo_decay_reduction", 0.0)
+
+    def get_knockback_bonus(self) -> float:
+        return self.progression_bonuses.get("knockback_bonus", 0.0)
+
+    def get_crit_chance(self) -> float:
+        return self.progression_bonuses.get("crit_chance", 0.0)
+
+    def get_health_regen_bonus(self) -> float:
+        return self.progression_bonuses.get("health_regen_bonus", 0.0)
 
     def get_special_skill(self) -> SkillData:
         return SkillData(
@@ -338,7 +400,7 @@ class HeroCharacter:
             return
 
         self.dodge_timer = 25
-        self.dodge_cooldown = 60
+        self.dodge_cooldown = self.get_dodge_cooldown_max()
         self.dodge_direction = direction
         self.state = CharacterState.DODGE
         self.invincible_timer = 25
@@ -455,7 +517,10 @@ class HeroCharacter:
                 opponent.rage = min(opponent.max_rage, opponent.rage + RAGE_PERFECT_BLOCK)
             else:
                 if opponent.block_high:
-                    reduced_damage = int(attack.damage * 0.2)
+                    base_block_damage = 0.2
+                    block_bonus = opponent.get_block_reduction_bonus()
+                    effective_block_reduction = 1.0 - base_block_damage + block_bonus
+                    reduced_damage = int(attack.damage * max(0.0, 1.0 - effective_block_reduction))
                     opponent.apply_damage(reduced_damage, attack)
                     opponent.hitstun = 5
                     effects_list.append(DamageNumber(
@@ -485,11 +550,30 @@ class HeroCharacter:
                 is_blocked = False
 
         if not is_blocked:
+            combo_decay_per_hit = COMBO_PROTECTION_PER_HIT - self.get_combo_decay_reduction()
             combo_multiplier = max(
                 COMBO_PROTECTION_START,
-                1.0 - opponent.hit_combo * COMBO_PROTECTION_PER_HIT
+                1.0 - opponent.hit_combo * max(0.0, combo_decay_per_hit)
             )
-            final_damage = int(attack.damage * combo_multiplier)
+
+            damage_modifier = 1.0
+
+            if self.hit_combo >= 2:
+                damage_modifier += self.get_combo_damage_bonus()
+
+            if attack.attack_type == AttackType.ULTIMATE:
+                damage_modifier += self.get_ultimate_damage_bonus()
+
+            crit_multiplier = 1.0
+            is_crit = False
+            crit_chance = self.get_crit_chance()
+            if crit_chance > 0:
+                import random
+                if random.random() < crit_chance:
+                    crit_multiplier = 1.5
+                    is_crit = True
+
+            final_damage = int(attack.damage * combo_multiplier * damage_modifier * crit_multiplier)
             actual_damage = opponent.apply_damage(final_damage, attack)
 
             opponent.hit_combo += 1
@@ -500,8 +584,12 @@ class HeroCharacter:
 
             self.total_damage_dealt += actual_damage
 
-            opponent.hitstun = attack.hitstun
-            opponent.vel_x = self.facing * attack.knockback_x
+            hitstun_reduction = opponent.progression_bonuses.get("hitstun_reduction", 0.0)
+            adjusted_hitstun = int(attack.hitstun * (1.0 - hitstun_reduction))
+            opponent.hitstun = adjusted_hitstun
+
+            knockback_multiplier = 1.0 + self.get_knockback_bonus()
+            opponent.vel_x = self.facing * attack.knockback_x * knockback_multiplier
             opponent.vel_y = attack.knockback_y
             opponent.is_grounded = False
 
@@ -516,7 +604,7 @@ class HeroCharacter:
                 opponent.x + opponent.width / 2,
                 opponent.y,
                 actual_damage,
-                is_crit=(attack.attack_type == AttackType.HEAVY)
+                is_crit=is_crit or (attack.attack_type == AttackType.HEAVY)
             ))
 
             spark_intensity = 1.0 if attack.attack_type == AttackType.LIGHT else 2.0
@@ -538,8 +626,13 @@ class HeroCharacter:
 
             screen_shake.trigger(shake_intensity, shake_duration)
 
-            self.rage = min(self.max_rage, self.rage + RAGE_ON_HIT)
+            rage_gain = RAGE_ON_HIT + self.get_rage_on_hit_bonus()
+            self.rage = min(self.max_rage, self.rage + rage_gain)
             opponent.rage = min(opponent.max_rage, opponent.rage + RAGE_ON_HIT_BY)
+
+            passive_rage_gen = self.progression_bonuses.get("rage_gen_passive", 0.0)
+            if passive_rage_gen > 0:
+                self.rage = min(self.max_rage, self.rage + passive_rage_gen)
 
             opponent.state = CharacterState.HIT
             opponent.is_blocking = False

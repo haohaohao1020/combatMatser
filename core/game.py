@@ -17,6 +17,7 @@ from ui import UI, InGameMenu
 from menus import MainMenu, HeroSelectMenu
 from stage import Stage
 from core.endless_mode import EndlessModeManager
+from progression import ProgressionManager
 
 
 class Game:
@@ -38,6 +39,8 @@ class Game:
         self.p1_wins = 0
         self.p2_wins = 0
         self.current_round = 1
+        self.game_start_time = 0
+        self.game_total_time = 0
 
         self.round_transition = False
         self.round_transition_timer = 0
@@ -57,6 +60,8 @@ class Game:
 
         self.endless_manager: Optional[EndlessModeManager] = None
 
+        self.progression = ProgressionManager()
+
         self.ui = UI()
         self.main_menu = MainMenu()
         self.hero_select_menu = HeroSelectMenu()
@@ -75,6 +80,20 @@ class Game:
         if self.use_hero_system and self.player1_hero_type and self.player2_hero_type:
             self.player1 = create_hero(200, ground_y, is_player1=True, hero_type=self.player1_hero_type)
             self.player2 = create_hero(SCREEN_WIDTH - 260, ground_y, is_player1=False, hero_type=self.player2_hero_type)
+
+            p1_bonuses = self.progression.get_merged_bonuses(self.player1_hero_type.name)
+            p2_bonuses = self.progression.get_merged_bonuses(self.player2_hero_type.name)
+            self.player1.set_progression_bonuses(p1_bonuses)
+            self.player2.set_progression_bonuses(p2_bonuses)
+
+            self.player1.max_health = self.player1.stats.max_health
+            self.player1.health = self.player1.max_health
+            self.player2.max_health = self.player2.stats.max_health
+            self.player2.health = self.player2.max_health
+
+            if self.current_round == 1:
+                self.player1.rage = self.player1._get_starting_rage()
+                self.player2.rage = self.player2._get_starting_rage()
         else:
             self.player1 = Character(200, ground_y, is_player1=True)
             self.player2 = Character(SCREEN_WIDTH - 260, ground_y, is_player1=False)
@@ -104,8 +123,56 @@ class Game:
         self.current_round = 1
         self.p1_wins = 0
         self.p2_wins = 0
+        self.game_start_time = pygame.time.get_ticks()
+        self.game_total_time = 0
         self.start_new_round()
         self.state = GameState.PLAYING
+
+    def _calculate_match_rewards(self, winner_is_p1: bool) -> Tuple[int, int]:
+        base_exp = 80
+        base_gold = 50
+
+        if winner_is_p1:
+            if self.difficulty == "easy":
+                difficulty_mult = 1.0
+            else:
+                difficulty_mult = 1.5
+        else:
+            difficulty_mult = 1.0
+
+        if self.game_mode == "pvc":
+            mode_mult = 1.2
+        else:
+            mode_mult = 1.0
+
+        exp_reward = int(base_exp * difficulty_mult * mode_mult)
+        gold_reward = int(base_gold * difficulty_mult * mode_mult)
+
+        return exp_reward, gold_reward
+
+    def _apply_match_rewards(self, winner_is_p1: bool):
+        self.game_total_time = (pygame.time.get_ticks() - self.game_start_time) / 1000.0
+
+        if winner_is_p1 and self.game_mode == "pvc":
+            exp_reward, gold_reward = self._calculate_match_rewards(True)
+            hero_name = self.player1_hero_type.name if self.player1_hero_type else "BASIC_FIGHTER"
+
+            self.progression.add_experience(hero_name, exp_reward)
+            self.progression.add_gold(gold_reward)
+            self.progression.record_win(hero_name, self.game_total_time)
+        elif self.game_mode == "pvp":
+            if winner_is_p1 and self.player1_hero_type:
+                exp_reward, gold_reward = self._calculate_match_rewards(True)
+                hero_name = self.player1_hero_type.name
+                self.progression.add_experience(hero_name, exp_reward)
+                self.progression.add_gold(gold_reward)
+                self.progression.record_win(hero_name, self.game_total_time)
+            elif not winner_is_p1 and self.player2_hero_type:
+                exp_reward, gold_reward = self._calculate_match_rewards(False)
+                hero_name = self.player2_hero_type.name
+                self.progression.add_experience(hero_name, exp_reward)
+                self.progression.add_gold(gold_reward)
+                self.progression.record_win(hero_name, self.game_total_time)
 
     def start_endless_mode(self):
         self.endless_manager = EndlessModeManager()
@@ -114,6 +181,11 @@ class Game:
         if self.use_hero_system and self.player1_hero_type:
             self.player1 = create_hero(SCREEN_WIDTH // 2 - PLAYER_WIDTH // 2, ground_y,
                                        is_player1=True, hero_type=self.player1_hero_type)
+            p1_bonuses = self.progression.get_merged_bonuses(self.player1_hero_type.name)
+            self.player1.set_progression_bonuses(p1_bonuses)
+            self.player1.max_health = self.player1.stats.max_health
+            self.player1.health = self.player1.max_health
+            self.player1.rage = self.player1._get_starting_rage()
         else:
             self.player1 = Character(SCREEN_WIDTH // 2 - PLAYER_WIDTH // 2, ground_y, is_player1=True)
 
@@ -126,6 +198,17 @@ class Game:
         self.endless_manager.start(self.player1)
 
         self.state = GameState.ENDLESS_PLAYING
+
+    def _apply_endless_rewards(self):
+        if not self.endless_manager or not self.player1_hero_type:
+            return
+
+        stats = self.endless_manager.stats
+        hero_name = self.player1_hero_type.name
+
+        self.progression.add_experience(hero_name, stats.exp_reward)
+        self.progression.add_gold(stats.gold_reward)
+        self.progression.record_wave(hero_name, stats.current_wave)
 
     def check_round_end(self) -> bool:
         if not self.player1 or not self.player2:
@@ -475,6 +558,9 @@ class Game:
                     self.current_round += 1
                     self.start_new_round()
                     self.state = GameState.PLAYING
+                else:
+                    winner_is_p1 = self.p1_wins >= 2
+                    self._apply_match_rewards(winner_is_p1)
 
         elif self.state == GameState.MENU:
             self.main_menu.update()
@@ -490,6 +576,7 @@ class Game:
 
                 if result == "game_over":
                     self.state = GameState.ENDLESS_GAME_OVER
+                    self._apply_endless_rewards()
                 elif result == "transition":
                     self.state = GameState.ENDLESS_WAVE_TRANSITION
                 elif result == "wave_complete":
@@ -566,10 +653,36 @@ class Game:
         if self.state == GameState.MENU:
             self.stage.render(self.screen)
             self.main_menu.render(self.screen)
+            self.ui.render_gold_display(self.screen, self.progression.get_total_gold(), x=SCREEN_WIDTH - 170, y=10)
 
         elif self.state == GameState.HERO_SELECT:
             self.stage.render(self.screen)
             self.hero_select_menu.render(self.screen)
+            self.ui.render_gold_display(self.screen, self.progression.get_total_gold(), x=SCREEN_WIDTH - 170, y=10)
+
+            if self.player1_hero_type:
+                p1_prog = self.progression.get_character_progression(self.player1_hero_type.name)
+                self.ui.render_hero_level_info(
+                    self.screen,
+                    p1_prog.level,
+                    p1_prog.current_experience,
+                    p1_prog.experience_to_next,
+                    p1_prog.available_talent_points,
+                    x=10,
+                    y=SCREEN_HEIGHT - 70
+                )
+
+            if self.player2_hero_type and not self.hero_select_menu.single_player_mode:
+                p2_prog = self.progression.get_character_progression(self.player2_hero_type.name)
+                self.ui.render_hero_level_info(
+                    self.screen,
+                    p2_prog.level,
+                    p2_prog.current_experience,
+                    p2_prog.experience_to_next,
+                    p2_prog.available_talent_points,
+                    x=SCREEN_WIDTH - 290,
+                    y=SCREEN_HEIGHT - 70
+                )
 
         elif self.state in [GameState.PLAYING, GameState.PAUSED, GameState.ROUND_END]:
             self.stage.render(self.screen, shake_x, shake_y)
@@ -596,11 +709,35 @@ class Game:
                     p2_name
                 )
 
+                if self.player1_hero_type:
+                    p1_prog = self.progression.get_character_progression(self.player1_hero_type.name)
+                    self.ui.render_experience_bar(
+                        self.screen,
+                        p1_prog.level,
+                        p1_prog.current_experience,
+                        p1_prog.experience_to_next,
+                        50, 75, 200, 8,
+                        is_player1=True
+                    )
+
+                if self.player2_hero_type:
+                    p2_prog = self.progression.get_character_progression(self.player2_hero_type.name)
+                    self.ui.render_experience_bar(
+                        self.screen,
+                        p2_prog.level,
+                        p2_prog.current_experience,
+                        p2_prog.experience_to_next,
+                        SCREEN_WIDTH - 250, 75, 200, 8,
+                        is_player1=False
+                    )
+
                 self.ui.render_timer(self.screen, self.round_timer)
 
                 self.ui.render_round_score(self.screen, self.p1_wins, self.p2_wins)
 
                 self.ui.render_combo(self.screen, self.player1, self.player2)
+
+            self.ui.render_gold_display(self.screen, self.progression.get_total_gold(), x=SCREEN_WIDTH - 170, y=10)
 
             if self.round_transition:
                 alpha = 0
@@ -659,6 +796,19 @@ class Game:
                     True, self.player1.rage, self.player1.max_rage,
                     "PLAYER 1"
                 )
+
+                if self.player1_hero_type:
+                    p1_prog = self.progression.get_character_progression(self.player1_hero_type.name)
+                    self.ui.render_experience_bar(
+                        self.screen,
+                        p1_prog.level,
+                        p1_prog.current_experience,
+                        p1_prog.experience_to_next,
+                        50, 75, 200, 8,
+                        is_player1=True
+                    )
+
+            self.ui.render_gold_display(self.screen, self.progression.get_total_gold(), x=SCREEN_WIDTH - 170, y=10)
 
             if self.endless_manager:
                 diff_color = self.endless_manager.difficulty.get_color_for_difficulty()

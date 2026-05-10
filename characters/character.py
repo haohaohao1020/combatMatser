@@ -1,5 +1,5 @@
 import math
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict
 import pygame
 
 from config import (
@@ -95,6 +95,41 @@ class Character:
         self.difficulty = "easy"
         self.ai_timer = 0
         self.ai_attack_cooldown = 0
+
+        self.progression_bonuses: Dict = {}
+
+    def _get_starting_rage(self) -> float:
+        return self.progression_bonuses.get("starting_rage_bonus", 0.0)
+
+    def get_dodge_cooldown_max(self) -> int:
+        return 60
+
+    def get_perfect_block_window_bonus(self) -> int:
+        return 0
+
+    def get_block_reduction_bonus(self) -> float:
+        return 0.0
+
+    def get_rage_on_hit_bonus(self) -> float:
+        return 0.0
+
+    def get_ultimate_damage_bonus(self) -> float:
+        return 0.0
+
+    def get_combo_damage_bonus(self) -> float:
+        return 0.0
+
+    def get_combo_decay_reduction(self) -> float:
+        return 0.0
+
+    def get_knockback_bonus(self) -> float:
+        return 0.0
+
+    def get_crit_chance(self) -> float:
+        return 0.0
+
+    def get_health_regen_bonus(self) -> float:
+        return 0.0
 
     def handle_input(self, keys, opponent: 'Character'):
         if self.is_ai:

@@ -314,3 +314,115 @@ class UI:
                 )
 
             surface.blit(transition_surface, (0, 0))
+
+    def render_gold_display(
+        self,
+        surface: pygame.Surface,
+        gold: int,
+        x: int = 10,
+        y: int = 10
+    ):
+        if not self.font_small:
+            return
+
+        panel_width = 150
+        panel_height = 40
+
+        panel_surface = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+        panel_alpha = clamp_color(200)
+        panel_color = with_alpha(DARK_GRAY, panel_alpha)
+        pygame.draw.rect(panel_surface, panel_color, (0, 0, panel_width, panel_height), border_radius=8)
+        pygame.draw.rect(panel_surface, YELLOW, (0, 0, panel_width, panel_height), 2, border_radius=8)
+
+        surface.blit(panel_surface, (x, y))
+
+        coin_text = self.font_small.render(f"GOLD: {gold}", True, YELLOW)
+        surface.blit(coin_text, (x + 15, y + 8))
+
+    def render_experience_bar(
+        self,
+        surface: pygame.Surface,
+        level: int,
+        current_exp: int,
+        exp_to_next: int,
+        x: int,
+        y: int,
+        width: int = 200,
+        height: int = 12,
+        is_player1: bool = True
+    ):
+        if not self.font_small:
+            return
+
+        bar_color = ORANGE if is_player1 else PURPLE
+        border_color = DARK_GRAY
+
+        pygame.draw.rect(surface, border_color, (x, y, width, height), border_radius=4)
+
+        if exp_to_next > 0:
+            exp_ratio = max(0.0, min(1.0, current_exp / exp_to_next))
+            fill_width = int(width * exp_ratio)
+            if fill_width > 0:
+                exp_surface = pygame.Surface((fill_width, height - 4), pygame.SRCALPHA)
+                for i in range(fill_width):
+                    t = i / fill_width
+                    color = lerp_color(YELLOW, bar_color, t)
+                    pygame.draw.line(exp_surface, color, (i, 0), (i, height - 4))
+                surface.blit(exp_surface, (x + 2, y + 2))
+
+        pygame.draw.rect(surface, bar_color, (x, y, width, height), 2, border_radius=4)
+
+        level_text = self.font_small.render(f"Lv.{level}", True, WHITE)
+        if is_player1:
+            surface.blit(level_text, (x - 50, y - 2))
+        else:
+            surface.blit(level_text, (x + width + 10, y - 2))
+
+    def render_hero_level_info(
+        self,
+        surface: pygame.Surface,
+        level: int,
+        current_exp: int,
+        exp_to_next: int,
+        talent_points: int,
+        x: int = 10,
+        y: int = 60
+    ):
+        if not self.font_small:
+            return
+
+        panel_width = 280
+        panel_height = 55
+
+        panel_surface = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+        panel_alpha = clamp_color(200)
+        panel_color = with_alpha(DARK_GRAY, panel_alpha)
+        pygame.draw.rect(panel_surface, panel_color, (0, 0, panel_width, panel_height), border_radius=8)
+        pygame.draw.rect(panel_surface, CYAN, (0, 0, panel_width, panel_height), 2, border_radius=8)
+
+        surface.blit(panel_surface, (x, y))
+
+        level_text = self.font_small.render(f"LEVEL: {level}", True, CYAN)
+        surface.blit(level_text, (x + 15, y + 8))
+
+        if talent_points > 0:
+            talent_text = self.font_small.render(f"TP: {talent_points}", True, ORANGE)
+            surface.blit(talent_text, (x + 150, y + 8))
+
+        bar_x = x + 15
+        bar_y = y + 32
+        bar_width = panel_width - 30
+        bar_height = 10
+
+        pygame.draw.rect(surface, GRAY, (bar_x, bar_y, bar_width, bar_height), border_radius=3)
+
+        if exp_to_next > 0:
+            exp_ratio = max(0.0, min(1.0, current_exp / exp_to_next))
+            fill_width = int(bar_width * exp_ratio)
+            if fill_width > 0:
+                for i in range(fill_width):
+                    t = i / bar_width
+                    color = lerp_color(YELLOW, ORANGE, t)
+                    pygame.draw.line(surface, color, (bar_x + i, bar_y + 2), (bar_x + i, bar_y + bar_height - 2))
+
+        pygame.draw.rect(surface, ORANGE, (bar_x, bar_y, bar_width, bar_height), 1, border_radius=3)
